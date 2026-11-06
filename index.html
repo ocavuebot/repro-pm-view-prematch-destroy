@@ -1,48 +1,18 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>prosemirror-view preMatch crash repro</title>
-    <style>
-      body { font: 14px/1.5 system-ui, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; }
-      .ProseMirror { border: 1px solid #999; padding: 8px 12px; min-height: 40px; outline: none; }
-      .ProseMirror .chip { display: inline-block; padding: 0 6px; border-radius: 10px; background: #dde; }
-      .ProseMirror .img { padding: 0 4px; background: #fdd; }
-      button { margin: 4px 4px 4px 0; }
-      pre { background: #f4f4f4; padding: 8px; white-space: pre-wrap; }
-      .ok { color: #070; } .err { color: #b00; }
-      section { margin-bottom: 32px; }
-    </style>
-  </head>
-  <body>
-    <h1>prosemirror-view 1.42.8: a throwing <code>destroy()</code> or a failed redraw corrupts the desc tree</h1>
-    <p>
-      Plain ProseMirror, no React. Each scenario ends with the same error as the Sentry event:
-      <code>TypeError</code> inside <code>preMatch</code> at <code>curDesc.parent.children</code>,
-      reached from <code>EditorView.destroy()</code>.
-    </p>
-
-    <section>
-      <h2>A. A node view <code>destroy()</code> that throws once</h2>
-      <p>Doc: <code>paragraph("plain ", strong("a", chip, "b"))</code>. The <code>chip</code> node view throws the first time it is destroyed. Deleting the run destroys the <code>strong</code> mark desc (its <code>parent</code> becomes <code>undefined</code>) but the splice after the loop never runs. Undo restores the same node objects, so <code>preMatch</code> walks into that desc and up to its missing parent.</p>
-      <div id="editor-a"></div>
-      <button id="a-step1">1. Delete the marked run (destroy throws, splice skipped)</button>
-      <button id="a-step2">2. Edit the DOM (ignored), then undo (preMatch crashes)</button>
-      <button id="a-destroy">3. view.destroy() (same crash as at unmount)</button>
-      <button id="a-run">Run all</button>
-      <pre id="log-a"></pre>
-    </section>
-
-    <section>
-      <h2>B. A redraw whose rebuild throws</h2>
-      <p>Doc: two paragraphs, the second with an <code>mdImage</code> mark. Changing <code>nodeViews</code> forces <code>docView.destroy()</code> plus a full rebuild; the <code>mdImage</code> mark view constructor throws (like a host image resolver), so <code>view.docView</code> keeps pointing at the destroyed tree.</p>
-      <div id="editor-b"></div>
-      <button id="b-step1">1. setProps({ nodeViews }) with a throwing mark view constructor</button>
-      <button id="b-destroy">2. view.destroy() (same crash as at unmount)</button>
-      <button id="b-run">Run all</button>
-      <pre id="log-b"></pre>
-    </section>
-
-    <script type="module" src="/main.js"></script>
-  </body>
-</html>
+<meta charset="utf-8" />
+<title>prosemirror-view preMatch repro</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 760px; margin: 24px auto; }
+  .ProseMirror { border: 1px solid #999; padding: 6px 10px; }
+  pre { background: #f4f4f4; padding: 8px; white-space: pre-wrap; }
+  .err { color: #b00; }
+</style>
+<h3>A. node view destroy() throws, then undo</h3>
+<div id="editor-a"></div>
+<button id="run-a">Run</button>
+<pre id="log-a"></pre>
+<h3>B. redraw fails, then view.destroy()</h3>
+<div id="editor-b"></div>
+<button id="run-b">Run</button>
+<pre id="log-b"></pre>
+<script type="module" src="/main.js"></script>

@@ -1,15 +1,23 @@
-# prosemirror-view 1.42.9 `preMatch` crash, minimal repro
+# prosemirror-view: destroyed view descs stay in the tree, `preMatch` then throws
 
-Plain ProseMirror + Vite. No React, no ProseKit, no meowdown.
+Two ways to end up with a `ViewDesc` whose `parent` is `undefined` (set by `ViewDesc.destroy()`) still sitting in its parent's `children`. The next update that walks into it throws in `preMatch`:
 
-```bash
-pnpm install --ignore-workspace
+```
+TypeError: Cannot read properties of undefined (reading 'children')
+    at preMatch            descI = curDesc.parent.children.indexOf(curDesc)
+    at new ViewTreeUpdater
+    at NodeViewDesc.updateChildren
+```
+
+prosemirror-view 1.42.9.
+
+```
+pnpm install
 pnpm dev
 ```
 
-Open the page and press "Run all" in each section. Every step prints to the page and to the console.
+**A. A node view `destroy()` throws.** `ViewTreeUpdater.destroyBetween` destroys the children first and splices them out after the loop. If one `destroy()` throws, the descs destroyed before it stay in `children`. In the repro a mark wraps the throwing node view, so the destroyed `MarkViewDesc` stays in the paragraph. Undo restores the same node objects; `preMatch` matches the mark's children and then reads `curDesc.parent.children`.
 
-- **A. A node view `destroy()` that throws once.** Deleting a marked run runs `ViewTreeUpdater.destroyBetween`, which destroys children first and splices after. The throw skips the splice, so the destroyed `strong` mark desc (`parent === undefined`) stays in the paragraph's `children`. Undo restores the same node objects, so the next `preMatch` walks into that desc and up to its missing parent: `TypeError ... 'children'`.
-- **B. A redraw whose rebuild throws.** Changing `nodeViews` makes `updateStateInner` call `docView.destroy()` and rebuild with `docViewDesc()`. A mark view constructor that throws leaves `view.docView` pointing at the destroyed tree. `view.destroy()` then crashes inside `preMatch` with the same stack as the production event, without any edit in between: `findNodeMatch` rejects every pre-matched child because `targetDesc.parent == this.top` is false, so every block is re-walked.
+**B. A redraw fails.** When `nodeViews` change, `updateStateInner` calls `this.docView.destroy()` and then `docViewDesc(...)`. If building the new tree throws (here: a mark view constructor), `view.docView` keeps pointing at the destroyed tree. `findNodeMatch` now rejects every pre-matched child (`targetDesc.parent == this.top` is false), so `view.destroy()` re-walks every block and throws in the first textblock that has a mark.
 
-Verified in headless Chromium (Playwright 1.64) on 2026-11-07 with prosemirror-view 1.42.9, the latest release at that date. 1.42.8 behaves the same. Both scenarios also print that, after the first exception, a DOM edit no longer reaches `view.state`: `updateStateInner` called `domObserver.stop()` and never reached `start()`.
+Possible fixes: splice before destroy (or `try/finally`) in `destroyBetween`; do not leave `this.docView` on a destroyed tree when `docViewDesc` throws; wrap the `docView.update` in `EditorView.destroy` in `try/finally` so the view is still torn down.
