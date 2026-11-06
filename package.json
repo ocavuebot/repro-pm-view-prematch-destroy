@@ -12,7 +12,7 @@
     "prosemirror-model": "1.25.12",
     "prosemirror-state": "1.4.4",
     "prosemirror-transform": "1.12.4",
-    "prosemirror-view": "1.42.8"
+    "prosemirror-view": "1.42.9"
   },
   "devDependencies": {
     "vite": "^7.1.0"
